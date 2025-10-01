@@ -1,35 +1,39 @@
 import { Tabs } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
+        tabBarActiveTintColor: 'tomato',
+        tabBarInactiveTintColor: 'gray',
       }}>
       <Tabs.Screen
-        name="index"
+        name="map"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Map',
+          tabBarIcon: ({ color }) => <Ionicons name="map-outline" size={28} color={color} />,
+          headerTitle: 'Live Map View',
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="alerts"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Alerts',
+          tabBarIcon: ({ color }) => <Ionicons name="shield-outline" size={28} color={color} />,
+          headerTitle: 'Emergency Alerts',
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: 'Notifications',
+          tabBarIcon: ({ color }) => <Ionicons name="notifications-outline" size={28} color={color} />,
+          headerTitle: 'Official Advisories',
         }}
       />
     </Tabs>
   );
 }
+
