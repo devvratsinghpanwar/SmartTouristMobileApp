@@ -4,10 +4,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const LOCATION_TASK_NAME = "background-location-task";
 
-// The API endpoint of your Next.js backend.
+// The API endpoint of your backend server.
 // For development, use your computer's local network IP address.
 // Find it by running `ipconfig` (Windows) or `ifconfig` (macOS/Linux).
-const API_URL = "http://192.168.56.1:3000/api/tourists"; // <-- IMPORTANT: REPLACE WITH YOUR IP
+const API_URL = "http://172.22.32.63:4000/api/tourists"; // <-- Updated with your network IP
 
 TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
   if (error) {
@@ -26,12 +26,22 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
 
       if (digitalId) {
         try {
+          const locationData = {
+            lat: latitude,
+            lng: longitude,
+            accuracy: location.coords.accuracy,
+            altitude: location.coords.altitude,
+            speed: location.coords.speed,
+            heading: location.coords.heading,
+            timestamp: new Date(location.timestamp).toISOString()
+          };
+
           await fetch(`${API_URL}/${digitalId}/location`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ lat: latitude, lng: longitude }),
+            body: JSON.stringify(locationData),
           });
-          console.log(`Location update sent for ${digitalId}`);
+          console.log(`Enhanced location update sent for ${digitalId}:`, locationData);
         } catch (err) {
           console.error("Failed to send location update:", err);
         }
@@ -64,10 +74,15 @@ export const startBackgroundLocationTracking = async (digitalId: string) => {
   await AsyncStorage.setItem("digitalId", digitalId);
 
   await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-    accuracy: Location.Accuracy.Balanced,
-    timeInterval: 10 * 60 * 1000, // 10 minutes for testing (1 hour = 60 * 60 * 1000)
-    deferredUpdatesInterval: 10 * 60 * 1000,
+    accuracy: Location.Accuracy.High, // Higher accuracy for better tracking
+    timeInterval: 5 * 60 * 1000, // 5 minutes for more frequent updates
+    deferredUpdatesInterval: 5 * 60 * 1000,
     showsBackgroundLocationIndicator: true,
+    foregroundService: {
+      notificationTitle: "Smart Tourist Safety",
+      notificationBody: "Tracking your location for safety monitoring",
+      notificationColor: "#ffffff",
+    },
   });
   console.log("Started background location tracking for", digitalId);
   return true;
