@@ -12,7 +12,7 @@ export default function ActivationScreen() {
   const handleActivate = async () => {
     // --- CHECKPOINT 1 ---
     console.log("Activate button pressed with ID:", id);
-    
+
     if (id.trim().length === 0) {
       Alert.alert('Error', 'Please enter your Digital Tourist ID.');
       return;
@@ -21,10 +21,29 @@ export default function ActivationScreen() {
     setIsLoading(true); // Start loading indicator
 
     try {
+      // --- CHECKPOINT 1.5: Validate Digital ID exists ---
+      console.log("Validating Digital ID with server...");
+      const validationResponse = await fetch(`http://172.22.200.29:4000/api/tourists/${id.trim()}`);
+
+      if (!validationResponse.ok) {
+        if (validationResponse.status === 404) {
+          Alert.alert(
+            'Invalid Digital ID',
+            'The Digital Tourist ID you entered was not found. Please check the ID and try again.\n\nMake sure you copied it exactly as provided during registration.'
+          );
+        } else {
+          Alert.alert('Validation Error', 'Could not validate your Digital ID. Please check your internet connection and try again.');
+        }
+        return;
+      }
+
+      const touristData = await validationResponse.json();
+      console.log("Digital ID validated successfully for:", touristData.kyc?.name || 'Tourist');
+
       // --- CHECKPOINT 2 ---
       console.log("Attempting to start background location tracking...");
       const trackingStarted = await startBackgroundLocationTracking(id.trim());
-      
+
       // --- CHECKPOINT 3 ---
       console.log("Result of startBackgroundLocationTracking:", trackingStarted);
 
@@ -35,17 +54,21 @@ export default function ActivationScreen() {
 
         // --- CHECKPOINT 5 ---
         console.log("ID saved. Navigating to the map screen...");
-        router.replace('/(tabs)/map');
+        Alert.alert(
+          'Activation Successful!',
+          `Welcome ${touristData.kyc?.name || 'Tourist'}! Your safety monitoring is now active.`,
+          [{ text: 'Continue', onPress: () => router.replace('/(tabs)/map') }]
+        );
       } else {
         Alert.alert(
-          'Permission Error', 
+          'Permission Error',
           'Could not start location tracking. Please ensure you have granted "Allow all the time" location permissions for the Expo Go app in your phone\'s settings.'
         );
       }
     } catch (error) {
       // --- CATCH ALL ERRORS ---
       console.error("An error occurred during activation:", error);
-      Alert.alert('Activation Failed', 'An unexpected error occurred. Please check the console for details.');
+      Alert.alert('Activation Failed', 'An unexpected error occurred. Please check your internet connection and try again.');
     } finally {
       setIsLoading(false); // Stop loading indicator
     }

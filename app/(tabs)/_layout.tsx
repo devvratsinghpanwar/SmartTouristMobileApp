@@ -33,6 +33,14 @@ export default function TabLayout() {
           headerTitle: 'Official Advisories',
         }}
       />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <Ionicons name="person-outline" size={28} color={color} />,
+          headerTitle: 'My Profile',
+        }}
+      />
     </Tabs>
   );
 }

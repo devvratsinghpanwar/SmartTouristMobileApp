@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, View, Alert, Text, TouchableOpacity } from "react-native";
+import { StyleSheet, View, Alert, Text, TouchableOpacity, ActivityIndicator } from "react-native";
 import MapView, { Marker, Circle, Polygon } from "react-native-maps";
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
+import { Ionicons } from '@expo/vector-icons';
 
 interface GeoFence {
   _id: string;
   name: string;
-  type: "safe_zone" | "restricted_zone" | "alert_zone" | "emergency_zone";
+  type: "safe_zone" | "restricted_zone" | "alert_zone" | "emergency_zone" | "danger_zone" | "restricted_area" | "tourist_zone";
+  riskLevel?: "low" | "medium" | "high" | "critical";
   geometry: {
     type: "Polygon" | "Circle";
     coordinates: number[][] | number[]; // Polygon uses number[][], Circle uses number[]
@@ -17,7 +19,7 @@ interface GeoFence {
   isActive: boolean;
 }
 
-const API_URL = "http://172.22.32.63:4000/api/dashboard"; // Updated with your network IP
+const API_URL = "http://172.22.200.29:4000/api/dashboard"; // Updated with your network IP
 
 export default function MapScreen() {
   const [location, setLocation] = useState<Location.LocationObject | null>(
@@ -25,6 +27,7 @@ export default function MapScreen() {
   );
   const [geoFences, setGeoFences] = useState<GeoFence[]>([]);
   const [digitalId, setDigitalId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -39,8 +42,14 @@ export default function MapScreen() {
       let currentLocation = await Location.getCurrentPositionAsync({});
       setLocation(currentLocation);
 
-      // Get digital ID from storage
-      const storedDigitalId = await AsyncStorage.getItem("digitalId");
+      // Get digital ID from storage, or set default for testing
+      let storedDigitalId = await AsyncStorage.getItem("digitalId");
+      if (!storedDigitalId) {
+        // Set default tourist ID for testing
+        storedDigitalId = "TID-sample123456";
+        await AsyncStorage.setItem("digitalId", storedDigitalId);
+        console.log("Set default digitalId:", storedDigitalId);
+      }
       setDigitalId(storedDigitalId);
 
       // Fetch geo-fences
@@ -60,27 +69,51 @@ export default function MapScreen() {
     }
   };
 
-  const getGeoFenceColor = (type: string) => {
-    switch (type) {
+  const refreshMapData = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchGeoFences();
+      // Also refresh current location
+      const currentLocation = await Location.getCurrentPositionAsync({});
+      setLocation(currentLocation);
+    } catch (error) {
+      console.error("Failed to refresh map data:", error);
+      Alert.alert("Refresh Failed", "Unable to refresh map data. Please check your internet connection.");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const getGeoFenceColor = (geoFence: GeoFence) => {
+    // Use risk level if available, otherwise fall back to type-based colors
+    if (geoFence.riskLevel) {
+      switch (geoFence.riskLevel) {
+        case "low":
+          return { stroke: "rgba(34, 197, 94, 0.8)", fill: "rgba(34, 197, 94, 0.2)" }; // Green
+        case "medium":
+          return { stroke: "rgba(251, 191, 36, 0.8)", fill: "rgba(251, 191, 36, 0.2)" }; // Yellow/Orange
+        case "high":
+          return { stroke: "rgba(239, 68, 68, 0.8)", fill: "rgba(239, 68, 68, 0.2)" }; // Red
+        case "critical":
+          return { stroke: "rgba(147, 51, 234, 0.8)", fill: "rgba(147, 51, 234, 0.2)" }; // Purple
+      }
+    }
+
+    // Fallback to type-based colors for backward compatibility
+    switch (geoFence.type) {
       case "safe_zone":
-        return { stroke: "rgba(0, 255, 0, 0.8)", fill: "rgba(0, 255, 0, 0.2)" };
-      case "restricted_zone":
-        return { stroke: "rgba(255, 0, 0, 0.8)", fill: "rgba(255, 0, 0, 0.2)" };
+      case "tourist_zone":
+        return { stroke: "rgba(34, 197, 94, 0.8)", fill: "rgba(34, 197, 94, 0.2)" }; // Green
       case "alert_zone":
-        return {
-          stroke: "rgba(255, 165, 0, 0.8)",
-          fill: "rgba(255, 165, 0, 0.2)",
-        };
+        return { stroke: "rgba(251, 191, 36, 0.8)", fill: "rgba(251, 191, 36, 0.2)" }; // Yellow/Orange
+      case "restricted_zone":
+      case "restricted_area":
+      case "danger_zone":
+        return { stroke: "rgba(239, 68, 68, 0.8)", fill: "rgba(239, 68, 68, 0.2)" }; // Red
       case "emergency_zone":
-        return {
-          stroke: "rgba(255, 0, 255, 0.8)",
-          fill: "rgba(255, 0, 255, 0.2)",
-        };
+        return { stroke: "rgba(147, 51, 234, 0.8)", fill: "rgba(147, 51, 234, 0.2)" }; // Purple
       default:
-        return {
-          stroke: "rgba(128, 128, 128, 0.8)",
-          fill: "rgba(128, 128, 128, 0.2)",
-        };
+        return { stroke: "rgba(156, 163, 175, 0.8)", fill: "rgba(156, 163, 175, 0.2)" }; // Gray
     }
   };
 
@@ -124,6 +157,22 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Header with refresh button */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Live Map View</Text>
+        <TouchableOpacity
+          style={styles.refreshButton}
+          onPress={refreshMapData}
+          disabled={isRefreshing}
+        >
+          {isRefreshing ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Ionicons name="refresh" size={20} color="#fff" />
+          )}
+        </TouchableOpacity>
+      </View>
+
       <MapView style={styles.map} initialRegion={userRegion}>
         {/* User location marker */}
         <Marker
@@ -137,7 +186,7 @@ export default function MapScreen() {
 
         {/* Render geo-fences */}
         {geoFences.map((geoFence) => {
-          const colors = getGeoFenceColor(geoFence.type);
+          const colors = getGeoFenceColor(geoFence);
 
           if (geoFence.geometry.type === "Circle") {
             // coordinates for circle is [longitude, latitude]
@@ -183,33 +232,42 @@ export default function MapScreen() {
 
       {/* Legend */}
       <View style={styles.legend}>
-        <Text style={styles.legendTitle}>Zones</Text>
+        <Text style={styles.legendTitle}>Risk Zones</Text>
         <View style={styles.legendItem}>
           <View
             style={[
               styles.legendColor,
-              { backgroundColor: "rgba(0, 255, 0, 0.5)" },
+              { backgroundColor: "rgba(34, 197, 94, 0.6)" },
             ]}
           />
-          <Text style={styles.legendText}>Safe Zone</Text>
+          <Text style={styles.legendText}>Low Risk</Text>
         </View>
         <View style={styles.legendItem}>
           <View
             style={[
               styles.legendColor,
-              { backgroundColor: "rgba(255, 165, 0, 0.5)" },
+              { backgroundColor: "rgba(251, 191, 36, 0.6)" },
             ]}
           />
-          <Text style={styles.legendText}>Alert Zone</Text>
+          <Text style={styles.legendText}>Medium Risk</Text>
         </View>
         <View style={styles.legendItem}>
           <View
             style={[
               styles.legendColor,
-              { backgroundColor: "rgba(255, 0, 0, 0.5)" },
+              { backgroundColor: "rgba(239, 68, 68, 0.6)" },
             ]}
           />
-          <Text style={styles.legendText}>Restricted Zone</Text>
+          <Text style={styles.legendText}>High Risk</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View
+            style={[
+              styles.legendColor,
+              { backgroundColor: "rgba(147, 51, 234, 0.6)" },
+            ]}
+          />
+          <Text style={styles.legendText}>Critical Risk</Text>
         </View>
         <TouchableOpacity style={styles.resetButton} onPress={resetApp}>
           <Text style={styles.resetButtonText}>Reset App</Text>
@@ -222,19 +280,47 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { justifyContent: "center", alignItems: "center" },
-  map: { width: "100%", height: "100%" },
+  header: {
+    height: 60,
+    backgroundColor: "#4A90E2",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  refreshButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  map: { width: "100%", flex: 1 },
   legend: {
     position: "absolute",
-    top: 50,
+    top: 65,
     right: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    padding: 10,
-    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    padding: 12,
+    borderRadius: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    maxWidth: 140,
   },
   legendTitle: {
     fontSize: 14,

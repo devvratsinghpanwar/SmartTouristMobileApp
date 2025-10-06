@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // REMINDER: Use the same IP Address as in your locationTask.ts
-const API_URL = 'http://172.22.32.63:4000/api/tourists';
+const API_URL = 'http://172.22.200.29:4000/api/tourists';
 
 export default function AlertsScreen() {
   const [isSending, setIsSending] = useState(false);

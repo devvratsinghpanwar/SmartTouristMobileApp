@@ -7,7 +7,7 @@ const LOCATION_TASK_NAME = "background-location-task";
 // The API endpoint of your backend server.
 // For development, use your computer's local network IP address.
 // Find it by running `ipconfig` (Windows) or `ifconfig` (macOS/Linux).
-const API_URL = "http://172.22.32.63:4000/api/tourists"; // <-- Updated with your network IP
+const API_URL = "http://172.22.200.29:4000/api/tourists"; // <-- Updated with your network IP
 
 TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
   if (error) {
